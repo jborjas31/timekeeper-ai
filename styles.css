@@ -385,6 +385,50 @@ body {
     color: #374151;
 }
 
+/* New architecture features */
+.time-slot.conflict {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(90deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.time-slot.conflict .time-label {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.time-slot[style*="--utilization"] {
+    position: relative;
+}
+
+.time-slot[style*="--utilization"]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: var(--utilization);
+    background: linear-gradient(90deg, #10b981 0%, #f59e0b 70%, #ef4444 100%);
+    border-radius: 0 3px 3px 0;
+}
+
+/* Multi-hour task spans */
+.slot-task.spans-multiple {
+    border-radius: 6px 6px 0 0;
+    margin-bottom: 1px;
+}
+
+.slot-task.task-continuation {
+    border-radius: 0;
+    border-top: 1px dashed rgba(255,255,255,0.3);
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+.slot-task.task-end {
+    border-radius: 0 0 6px 6px;
+    margin-top: 1px;
+}
+
 /* Animations */
 @keyframes pulse {
     0%, 100% { opacity: 1; }

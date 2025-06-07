@@ -1,9 +1,438 @@
-class TimeKeeper {
+// Pure scheduling logic - no DOM manipulation
+class ScheduleEngine {
     constructor() {
         this.tasks = [];
-        this.completions = {}; // Format: { 'taskId-YYYY-MM-DD': true }
+        this.completions = {};
+    }
+
+    // Calculate complete day schedule with all metadata
+    calculateDaySchedule(date = new Date()) {
+        const dayData = {
+            date: date,
+            slots: this.createEmptySlots(),
+            conflicts: [],
+            gaps: [],
+            stats: {
+                totalTasks: 0,
+                completedTasks: 0,
+                requiredTasks: 0,
+                overdueCount: 0
+            }
+        };
+
+        // Generate all task instances for this day
+        const taskInstances = this.generateAllTaskInstances(date);
+        
+        // Place tasks in time slots and detect conflicts
+        taskInstances.forEach(instance => {
+            this.placeTaskInSchedule(instance, dayData);
+        });
+
+        // Calculate gaps and statistics
+        this.calculateGaps(dayData);
+        this.calculateStats(dayData);
+
+        return dayData;
+    }
+
+    createEmptySlots() {
+        const slots = [];
+        for (let hour = 0; hour < 24; hour++) {
+            slots.push({
+                hour: hour,
+                tasks: [],
+                hasConflict: false,
+                utilizationPercent: 0
+            });
+        }
+        return slots;
+    }
+
+    generateAllTaskInstances(date) {
+        const instances = [];
+        
+        this.tasks.forEach(task => {
+            if (this.shouldTaskOccurToday(task, date)) {
+                const instance = this.createTaskInstance(task, date);
+                if (instance) {
+                    instances.push(instance);
+                }
+            }
+        });
+
+        return instances.sort((a, b) => a.startTime.hour - b.startTime.hour);
+    }
+
+    shouldTaskOccurToday(task, date) {
+        switch (task.frequency) {
+            case 'once': return this.isToday(date);
+            case 'daily': return true;
+            case 'weekly': return date.getDay() === 1; // Monday
+            case 'monthly': return date.getDate() === 1;
+            default: return false;
+        }
+    }
+
+    createTaskInstance(task, date) {
+        // Calculate actual start time considering dependencies
+        const actualStartTime = this.calculateDependentTime(task, date);
+        const originalTime = this.parseTaskTime(task.time);
+        
+        // Handle required task movement logic
+        let finalStartTime = actualStartTime;
+        let isMoved = false;
+        
+        if (task.required && !this.isTaskCompleted(task, date) && this.isToday(date)) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            
+            if (currentHour > actualStartTime.hour || 
+                (currentHour === actualStartTime.hour && currentMinute > actualStartTime.minute)) {
+                finalStartTime = { hour: currentHour, minute: currentMinute };
+                isMoved = true;
+            }
+        }
+
+        return {
+            id: `${task.id}-${date.toDateString()}`,
+            taskId: task.id,
+            name: task.name,
+            startTime: finalStartTime,
+            endTime: this.calculateEndTime(finalStartTime, task.duration),
+            originalTime: originalTime,
+            duration: task.duration,
+            required: task.required,
+            dependsOn: task.dependsOn,
+            bufferTime: task.bufferTime || 5,
+            date: date,
+            completed: this.isTaskCompleted(task, date),
+            overdue: isMoved,
+            spans: this.calculateSpannedHours(finalStartTime, task.duration)
+        };
+    }
+
+    calculateSpannedHours(startTime, duration) {
+        const spans = [];
+        let currentMinute = startTime.hour * 60 + startTime.minute;
+        const endMinute = currentMinute + duration;
+        
+        while (currentMinute < endMinute) {
+            const hour = Math.floor(currentMinute / 60) % 24;
+            const minutesInThisHour = Math.min(60 - (currentMinute % 60), endMinute - currentMinute);
+            
+            spans.push({
+                hour: hour,
+                startMinute: currentMinute % 60,
+                duration: minutesInThisHour,
+                utilizationPercent: (minutesInThisHour / 60) * 100
+            });
+            
+            currentMinute += minutesInThisHour;
+        }
+        
+        return spans;
+    }
+
+    placeTaskInSchedule(instance, dayData) {
+        instance.spans.forEach(span => {
+            const slot = dayData.slots[span.hour];
+            slot.tasks.push({
+                ...instance,
+                slotStartMinute: span.startMinute,
+                slotDuration: span.duration,
+                slotUtilization: span.utilizationPercent
+            });
+            
+            slot.utilizationPercent += span.utilizationPercent;
+            
+            // Detect conflicts (more than 100% utilization)
+            if (slot.utilizationPercent > 100) {
+                slot.hasConflict = true;
+                this.addConflict(dayData, span.hour, slot.tasks);
+            }
+        });
+        
+        dayData.stats.totalTasks++;
+        if (instance.completed) dayData.stats.completedTasks++;
+        if (instance.required) dayData.stats.requiredTasks++;
+        if (instance.overdue) dayData.stats.overdueCount++;
+    }
+
+    addConflict(dayData, hour, conflictingTasks) {
+        const existing = dayData.conflicts.find(c => c.hour === hour);
+        if (!existing) {
+            dayData.conflicts.push({
+                hour: hour,
+                tasks: conflictingTasks.map(t => ({
+                    name: t.name,
+                    startTime: t.startTime,
+                    endTime: t.endTime
+                })),
+                severity: conflictingTasks.length
+            });
+        }
+    }
+
+    calculateGaps(dayData) {
+        let gapStart = null;
+        
+        dayData.slots.forEach((slot, hour) => {
+            if (slot.tasks.length === 0) {
+                if (gapStart === null) gapStart = hour;
+            } else {
+                if (gapStart !== null) {
+                    dayData.gaps.push({
+                        startHour: gapStart,
+                        endHour: hour - 1,
+                        duration: hour - gapStart
+                    });
+                    gapStart = null;
+                }
+            }
+        });
+        
+        // Handle gap at end of day
+        if (gapStart !== null) {
+            dayData.gaps.push({
+                startHour: gapStart,
+                endHour: 23,
+                duration: 24 - gapStart
+            });
+        }
+    }
+
+    calculateStats(dayData) {
+        const busySlots = dayData.slots.filter(slot => slot.tasks.length > 0).length;
+        dayData.stats.busyHours = busySlots;
+        dayData.stats.freeHours = 24 - busySlots;
+        dayData.stats.conflictHours = dayData.conflicts.length;
+        dayData.stats.completionRate = dayData.stats.totalTasks > 0 ? 
+            (dayData.stats.completedTasks / dayData.stats.totalTasks * 100).toFixed(1) : 0;
+    }
+
+    calculateEndTime(startTime, duration) {
+        const totalMinutes = startTime.hour * 60 + startTime.minute + duration;
+        return {
+            hour: Math.floor(totalMinutes / 60) % 24,
+            minute: totalMinutes % 60
+        };
+    }
+
+    // Helper methods (keeping existing logic)
+    calculateDependentTime(task, date, depth = 0) {
+        if (depth > 10) {
+            console.warn('Dependency chain too deep, using original time for:', task.name);
+            return this.parseTaskTime(task.time);
+        }
+        
+        if (!task.dependsOn) {
+            return this.parseTaskTime(task.time);
+        }
+        
+        const parentTask = this.tasks.find(t => t.id === task.dependsOn);
+        if (!parentTask) {
+            return this.parseTaskTime(task.time);
+        }
+        
+        const parentTime = this.calculateDependentTime(parentTask, date, depth + 1);
+        const startMinutes = parentTime.hour * 60 + parentTime.minute + 
+                           (parentTask.duration || 30) + (task.bufferTime || 5);
+        
+        const totalMinutes = startMinutes % (24 * 60);
+        
+        return {
+            hour: Math.floor(totalMinutes / 60),
+            minute: totalMinutes % 60
+        };
+    }
+
+    parseTaskTime(timeString) {
+        try {
+            const parts = timeString.trim().split(' ');
+            if (parts.length !== 2) throw new Error('Invalid time format');
+            
+            const [time, period] = parts;
+            const timeParts = time.split(':');
+            if (timeParts.length !== 2) throw new Error('Invalid time format');
+            
+            let hour = parseInt(timeParts[0]);
+            const minute = parseInt(timeParts[1]);
+            
+            if (isNaN(hour) || isNaN(minute) || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+                throw new Error('Invalid time values');
+            }
+            
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            
+            return { hour, minute };
+        } catch (e) {
+            console.error('Error parsing time:', timeString, e);
+            return { hour: 9, minute: 0 };
+        }
+    }
+
+    isTaskCompleted(task, date) {
+        const dateStr = this.formatDateKey(date);
+        const completionKey = `${task.id}-${dateStr}`;
+        return this.completions[completionKey] === true;
+    }
+
+    formatDateKey(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    isToday(date) {
+        const today = new Date();
+        return date.toDateString() === today.toDateString();
+    }
+}
+
+// Clean visual rendering - no scheduling logic
+class TimeGridRenderer {
+    constructor() {
+        this.container = null;
+    }
+
+    setContainer(element) {
+        this.container = element;
+    }
+
+    render(scheduleData) {
+        if (!this.container) return;
+        
+        this.container.innerHTML = '';
+        
+        scheduleData.slots.forEach((slot, hour) => {
+            const slotElement = this.createSlotElement(slot, hour);
+            this.container.appendChild(slotElement);
+        });
+    }
+
+    createSlotElement(slot, hour) {
+        const slotEl = document.createElement('div');
+        slotEl.className = 'time-slot';
+        
+        // Add current hour highlighting
+        if (hour === new Date().getHours()) {
+            slotEl.classList.add('current');
+        }
+        
+        // Add conflict indicator
+        if (slot.hasConflict) {
+            slotEl.classList.add('conflict');
+        }
+        
+        // Create time label
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        timeLabel.textContent = this.formatHour(hour);
+        
+        // Create content area
+        const content = document.createElement('div');
+        content.className = 'time-content';
+        
+        // Add tasks to this slot
+        slot.tasks.forEach(task => {
+            const taskElement = this.createTaskElement(task);
+            content.appendChild(taskElement);
+        });
+        
+        // Add utilization indicator
+        if (slot.utilizationPercent > 0) {
+            slotEl.style.setProperty('--utilization', `${Math.min(100, slot.utilizationPercent)}%`);
+        }
+        
+        slotEl.appendChild(timeLabel);
+        slotEl.appendChild(content);
+        
+        return slotEl;
+    }
+
+    createTaskElement(task) {
+        const element = document.createElement('div');
+        element.className = 'slot-task';
+        
+        // Add status classes
+        if (task.required) element.classList.add('required');
+        else element.classList.add('optional');
+        
+        if (task.overdue) element.classList.add('overdue');
+        if (task.completed) element.classList.add('completed');
+        if (task.dependsOn) element.classList.add('has-dependency');
+        
+        // Create task content structure
+        const taskContent = document.createElement('div');
+        taskContent.className = 'task-content';
+        
+        const taskInfo = document.createElement('div');
+        taskInfo.className = 'task-info';
+        taskInfo.textContent = task.name;
+        
+        const timeRange = document.createElement('div');
+        timeRange.className = 'task-time-range';
+        timeRange.textContent = `${this.formatTime(task.startTime)} - ${this.formatTime(task.endTime)}`;
+        
+        // Add dependency info if present
+        if (task.dependsOn) {
+            const dependencyInfo = document.createElement('div');
+            dependencyInfo.className = 'task-dependency';
+            dependencyInfo.textContent = `← linked task`;
+            taskContent.appendChild(dependencyInfo);
+        }
+        
+        taskContent.appendChild(taskInfo);
+        taskContent.appendChild(timeRange);
+        
+        // Create completion button
+        const completeBtn = document.createElement('button');
+        completeBtn.className = 'complete-btn';
+        completeBtn.innerHTML = task.completed ? '✓' : '○';
+        completeBtn.title = task.completed ? 'Mark incomplete' : 'Mark complete';
+        completeBtn.onclick = (e) => {
+            e.stopPropagation();
+            // Dispatch custom event for completion toggle
+            const event = new CustomEvent('taskCompletion', {
+                detail: { taskId: task.taskId, date: task.date, completed: task.completed }
+            });
+            document.dispatchEvent(event);
+        };
+        
+        element.appendChild(completeBtn);
+        element.appendChild(taskContent);
+        
+        return element;
+    }
+
+    formatHour(hour) {
+        if (hour === 0) return '12 AM';
+        if (hour < 12) return `${hour} AM`;
+        if (hour === 12) return '12 PM';
+        return `${hour - 12} PM`;
+    }
+
+    formatTime(timeObj) {
+        const { hour, minute } = timeObj;
+        let displayHour = hour;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        
+        if (hour === 0) displayHour = 12;
+        else if (hour > 12) displayHour = hour - 12;
+        
+        return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+    }
+}
+
+class TimeKeeper {
+    constructor() {
         this.currentEditingId = null;
         this.currentHour = new Date().getHours();
+        
+        // Initialize new architecture components
+        this.scheduleEngine = new ScheduleEngine();
+        this.timeGridRenderer = new TimeGridRenderer();
+        
         this.init();
     }
 
@@ -30,6 +459,24 @@ class TimeKeeper {
         document.getElementById('taskModal').onclick = (e) => {
             if (e.target.id === 'taskModal') this.closeModal();
         };
+        
+        // Listen for task completion events from renderer
+        document.addEventListener('taskCompletion', (e) => {
+            this.handleTaskCompletion(e.detail);
+        });
+    }
+
+    handleTaskCompletion(detail) {
+        const { taskId, date, completed } = detail;
+        const task = this.scheduleEngine.tasks.find(t => t.id === taskId);
+        
+        if (!task) return;
+        
+        if (completed) {
+            this.markTaskIncomplete(task, date);
+        } else {
+            this.markTaskComplete(task, date);
+        }
     }
 
     showScreen(screenName) {
@@ -72,39 +519,19 @@ class TimeKeeper {
     }
 
     generateTimeGrid() {
+        // Set up renderer with container
         const grid = document.getElementById('timeGrid');
-        grid.innerHTML = '';
+        this.timeGridRenderer.setContainer(grid);
         
-        const now = new Date();
-        const currentHour = now.getHours();
+        // Get schedule data from engine
+        const scheduleData = this.scheduleEngine.calculateDaySchedule(new Date());
         
-        // Generate 24-hour grid
-        for (let hour = 0; hour < 24; hour++) {
-            const slot = document.createElement('div');
-            slot.className = 'time-slot';
-            if (hour === currentHour) {
-                slot.classList.add('current');
-            }
-            
-            const timeLabel = document.createElement('div');
-            timeLabel.className = 'time-label';
-            timeLabel.textContent = this.formatHour(hour);
-            
-            const content = document.createElement('div');
-            content.className = 'time-content';
-            
-            // Add scheduled tasks for this hour
-            const scheduledTasks = this.getTasksForHour(hour);
-            if (scheduledTasks.length > 0) {
-                scheduledTasks.forEach(task => {
-                    const taskElement = this.createTaskElement(task);
-                    content.appendChild(taskElement);
-                });
-            }
-            
-            slot.appendChild(timeLabel);
-            slot.appendChild(content);
-            grid.appendChild(slot);
+        // Render the grid
+        this.timeGridRenderer.render(scheduleData);
+        
+        // Optional: Log schedule insights for debugging
+        if (scheduleData.conflicts.length > 0) {
+            console.warn('Schedule conflicts detected:', scheduleData.conflicts);
         }
     }
 
@@ -437,7 +864,7 @@ class TimeKeeper {
         this.populateDependencyOptions(taskId);
         
         if (taskId) {
-            const task = this.tasks.find(t => t.id === taskId);
+            const task = this.scheduleEngine.tasks.find(t => t.id === taskId);
             this.fillForm(task);
             document.getElementById('modalTitle').textContent = 'Edit Task';
         } else {
@@ -461,7 +888,7 @@ class TimeKeeper {
         const select = document.getElementById('taskDependsOn');
         select.innerHTML = '<option value="">No dependency</option>';
         
-        this.tasks.forEach(task => {
+        this.scheduleEngine.tasks.forEach(task => {
             if (task.id !== excludeTaskId) {
                 const option = document.createElement('option');
                 option.value = task.id;
@@ -545,10 +972,10 @@ class TimeKeeper {
         };
         
         if (this.currentEditingId) {
-            const index = this.tasks.findIndex(t => t.id === this.currentEditingId);
-            this.tasks[index] = task;
+            const index = this.scheduleEngine.tasks.findIndex(t => t.id === this.currentEditingId);
+            this.scheduleEngine.tasks[index] = task;
         } else {
-            this.tasks.push(task);
+            this.scheduleEngine.tasks.push(task);
         }
         
         this.saveTasks();
@@ -583,10 +1010,10 @@ class TimeKeeper {
         
         if (confirm(confirmMessage)) {
             // Remove the task
-            this.tasks = this.tasks.filter(t => t.id !== taskId);
+            this.scheduleEngine.tasks = this.scheduleEngine.tasks.filter(t => t.id !== taskId);
             
             // Clean up any dependencies pointing to this task
-            this.tasks.forEach(task => {
+            this.scheduleEngine.tasks.forEach(task => {
                 if (task.dependsOn === taskId) {
                     task.dependsOn = null;
                 }
@@ -601,15 +1028,15 @@ class TimeKeeper {
     renderTaskList() {
         const container = document.getElementById('taskList');
         
-        if (this.tasks.length === 0) {
+        if (this.scheduleEngine.tasks.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #64748b; padding: 2rem;">No tasks yet. Add your first task!</p>';
             return;
         }
         
-        container.innerHTML = this.tasks.map(task => {
+        container.innerHTML = this.scheduleEngine.tasks.map(task => {
             let dependencyInfo = '';
             if (task.dependsOn) {
-                const parentTask = this.tasks.find(t => t.id === task.dependsOn);
+                const parentTask = this.scheduleEngine.tasks.find(t => t.id === task.dependsOn);
                 if (parentTask) {
                     dependencyInfo = ` • depends on "${parentTask.name}"`;
                 }
@@ -630,10 +1057,10 @@ class TimeKeeper {
         }).join('');
     }
 
-    // Data persistence
+    // Data persistence with sync to ScheduleEngine
     saveTasks() {
         try {
-            localStorage.setItem('timekeeper-tasks', JSON.stringify(this.tasks));
+            localStorage.setItem('timekeeper-tasks', JSON.stringify(this.scheduleEngine.tasks));
         } catch (e) {
             console.error('Error saving tasks:', e);
             alert('Could not save tasks. Storage may be full.');
@@ -644,9 +1071,9 @@ class TimeKeeper {
         try {
             const saved = localStorage.getItem('timekeeper-tasks');
             if (saved) {
-                this.tasks = JSON.parse(saved);
+                const tasks = JSON.parse(saved);
                 // Validate loaded data and set defaults for new fields
-                this.tasks = this.tasks.filter(task => 
+                this.scheduleEngine.tasks = tasks.filter(task => 
                     task.id && task.name && task.time && task.duration && task.frequency !== undefined
                 ).map(task => ({
                     ...task,
@@ -654,11 +1081,11 @@ class TimeKeeper {
                     bufferTime: task.bufferTime || 5
                 }));
             } else {
-                this.tasks = [];
+                this.scheduleEngine.tasks = [];
             }
         } catch (e) {
             console.error('Error loading tasks:', e);
-            this.tasks = [];
+            this.scheduleEngine.tasks = [];
             alert('Could not load saved tasks. Starting fresh.');
         }
     }
@@ -667,21 +1094,21 @@ class TimeKeeper {
         try {
             const saved = localStorage.getItem('timekeeper-completions');
             if (saved) {
-                this.completions = JSON.parse(saved);
+                this.scheduleEngine.completions = JSON.parse(saved);
                 // Clean up old completions (older than 30 days)
                 this.cleanOldCompletions();
             } else {
-                this.completions = {};
+                this.scheduleEngine.completions = {};
             }
         } catch (e) {
             console.error('Error loading completions:', e);
-            this.completions = {};
+            this.scheduleEngine.completions = {};
         }
     }
 
     saveCompletions() {
         try {
-            localStorage.setItem('timekeeper-completions', JSON.stringify(this.completions));
+            localStorage.setItem('timekeeper-completions', JSON.stringify(this.scheduleEngine.completions));
         } catch (e) {
             console.error('Error saving completions:', e);
         }
@@ -692,12 +1119,60 @@ class TimeKeeper {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const cutoffDate = this.formatDateKey(thirtyDaysAgo);
         
-        Object.keys(this.completions).forEach(key => {
+        Object.keys(this.scheduleEngine.completions).forEach(key => {
             const dateStr = key.split('-').slice(-3).join('-'); // Get YYYY-MM-DD part
             if (dateStr < cutoffDate) {
-                delete this.completions[key];
+                delete this.scheduleEngine.completions[key];
             }
         });
+    }
+
+    formatDateKey(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // Helper methods for compatibility
+    getDependentTasks(taskId) {
+        return this.scheduleEngine.tasks.filter(task => task.dependsOn === taskId);
+    }
+
+    wouldCreateCycle(taskId, dependsOnId) {
+        if (!dependsOnId || taskId === dependsOnId) return true;
+        
+        const visited = new Set();
+        const stack = [dependsOnId];
+        
+        while (stack.length > 0) {
+            const currentId = stack.pop();
+            
+            if (currentId === taskId) return true;
+            if (visited.has(currentId)) continue;
+            
+            visited.add(currentId);
+            
+            const task = this.scheduleEngine.tasks.find(t => t.id === currentId);
+            if (task && task.dependsOn) {
+                stack.push(task.dependsOn);
+            }
+        }
+        
+        return false;
+    }
+
+    markTaskComplete(task, date) {
+        const dateStr = this.formatDateKey(date);
+        const completionKey = `${task.id}-${dateStr}`;
+        this.scheduleEngine.completions[completionKey] = true;
+        this.saveCompletions();
+        this.generateTimeGrid();
+    }
+
+    markTaskIncomplete(task, date) {
+        const dateStr = this.formatDateKey(date);
+        const completionKey = `${task.id}-${dateStr}`;
+        delete this.scheduleEngine.completions[completionKey];
+        this.saveCompletions();
+        this.generateTimeGrid();
     }
 
     scheduleUpdates() {
