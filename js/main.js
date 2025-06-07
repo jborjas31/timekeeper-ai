@@ -1,7 +1,7 @@
 class TimeKeeper {
     constructor() {
         this.scheduleCalculator = new ScheduleCalculator();
-        this.timeGridRenderer = new TimeGridRenderer();
+        this.timeGridRenderer = new SimpleTimeGridRenderer();
         this.taskController = new TaskController(this.scheduleCalculator);
         this.storageController = new StorageController(this.scheduleCalculator);
         this.uiController = new UIController(
@@ -39,71 +39,26 @@ class TimeKeeper {
             position: fixed;
             top: 10px;
             left: 10px;
-            background: #374151;
+            background: #ef4444;
             color: white;
             padding: 0.5rem 1rem;
             border-radius: 6px;
             font-size: 0.85rem;
             z-index: 1000;
             display: none;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         `;
-
-        let lastSyncTime = 0;
-        let syncConfirmationTimer = null;
         
         const updateIndicator = () => {
-            const isOnline = navigator.onLine;
-            const storageController = this.storageController;
-            
-            // Clear any existing sync confirmation timer
-            if (syncConfirmationTimer) {
-                clearTimeout(syncConfirmationTimer);
-                syncConfirmationTimer = null;
-            }
-            
-            if (!isOnline) {
-                indicator.innerHTML = '📴 Offline - All changes saved locally';
-                indicator.style.background = '#ef4444';
-                indicator.style.display = 'flex';
-            } else if (storageController && storageController.offlineMode) {
-                indicator.innerHTML = '💾 Local mode - Firestore unavailable';
-                indicator.style.background = '#f59e0b';
-                indicator.style.display = 'flex';
-            } else if (storageController && storageController.pendingWrites.size > 0) {
-                indicator.innerHTML = `🔄 Syncing ${storageController.pendingWrites.size} changes to cloud...`;
-                indicator.style.background = '#3b82f6';
-                indicator.style.display = 'flex';
-            } else if (FirebaseConfig.isConfigured() && Date.now() - lastSyncTime < 3000) {
-                // Show brief sync confirmation only if we recently synced
-                indicator.innerHTML = '☁️ Synced to cloud';
-                indicator.style.background = '#10b981';
-                indicator.style.display = 'flex';
-                syncConfirmationTimer = setTimeout(() => {
-                    indicator.style.display = 'none';
-                }, 2000);
+            if (!navigator.onLine) {
+                indicator.innerHTML = '📴 Offline';
+                indicator.style.display = 'block';
             } else {
                 indicator.style.display = 'none';
             }
         };
-        
-        // Update lastSyncTime when sync completes
-        const originalUpdateIndicator = updateIndicator;
-        this.updateSyncStatus = () => {
-            lastSyncTime = Date.now();
-            originalUpdateIndicator();
-        };
 
-        // Listen for online/offline events
         window.addEventListener('online', updateIndicator);
         window.addEventListener('offline', updateIndicator);
-        
-        // Update periodically to check sync status (less frequently)
-        setInterval(updateIndicator, 5000);
-        
-        // Initial update
         updateIndicator();
         
         document.body.appendChild(indicator);

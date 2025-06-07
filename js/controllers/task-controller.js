@@ -4,31 +4,58 @@ class TaskController {
         this.currentEditingId = null;
     }
 
-    openTaskModal(taskId = null) {
+    openTaskModal(taskOrId = null) {
+        let task = null;
+        let taskId = null;
+        
+        if (taskOrId) {
+            if (typeof taskOrId === 'string') {
+                taskId = taskOrId;
+                task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
+            } else {
+                task = taskOrId;
+                taskId = task.id;
+            }
+        }
+        
         this.currentEditingId = taskId;
         const modal = document.getElementById('taskModal');
         const form = document.getElementById('taskForm');
+        const modalTitle = document.getElementById('modalTitle');
+        
+        console.log('🔧 Modal elements found:', { modal: !!modal, form: !!form, modalTitle: !!modalTitle });
+        
+        if (!modal || !form || !modalTitle) {
+            console.error('❌ Required modal elements not found', { modal, form, modalTitle });
+            return;
+        }
         
         this.populateDependencyOptions(taskId);
         
-        if (taskId) {
-            const task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
+        if (task) {
             this.fillForm(task);
-            document.getElementById('modalTitle').textContent = 'Edit Task';
+            modalTitle.textContent = 'Edit Task';
         } else {
             form.reset();
-            document.getElementById('modalTitle').textContent = 'Add Task';
-            document.getElementById('taskRequired').checked = true;
-            document.getElementById('taskBufferTime').value = 5;
+            modalTitle.textContent = 'Add Task';
+            const taskRequired = document.getElementById('taskRequired');
+            const taskBufferTime = document.getElementById('taskBufferTime');
+            if (taskRequired) taskRequired.checked = true;
+            if (taskBufferTime) taskBufferTime.value = 5;
         }
         
+        console.log('✅ Opening modal - setting display to block');
         modal.style.display = 'block';
+        console.log('📏 Modal display style after setting:', modal.style.display);
     }
 
     closeModal() {
-        document.getElementById('taskModal').style.display = 'none';
+        const modal = document.getElementById('taskModal');
+        const form = document.getElementById('taskForm');
+        
+        if (modal) modal.style.display = 'none';
+        if (form) form.reset();
         this.currentEditingId = null;
-        document.getElementById('taskForm').reset();
     }
 
     populateDependencyOptions(excludeTaskId) {

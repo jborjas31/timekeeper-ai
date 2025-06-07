@@ -184,10 +184,27 @@ class ScheduleCalculator {
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
+            const currentSeconds = now.getSeconds();
             
-            if (currentHour > actualStartTime.hour || 
-                (currentHour === actualStartTime.hour && currentMinute > actualStartTime.minute)) {
-                finalStartTime = { hour: currentHour, minute: currentMinute };
+            // Calculate current time in minutes for comparison
+            const currentTimeInMinutes = currentHour * 60 + currentMinute + (currentSeconds > 0 ? 1 : 0);
+            const scheduledTimeInMinutes = actualStartTime.hour * 60 + actualStartTime.minute;
+            
+            if (currentTimeInMinutes > scheduledTimeInMinutes) {
+                // Round up to next minute if we have seconds
+                let adjustedMinute = currentSeconds > 0 ? currentMinute + 1 : currentMinute;
+                let adjustedHour = currentHour;
+                
+                if (adjustedMinute >= 60) {
+                    adjustedMinute = adjustedMinute - 60;
+                    adjustedHour = currentHour + 1;
+                }
+                
+                if (adjustedHour >= 24) {
+                    adjustedHour = 0;
+                }
+                
+                finalStartTime = { hour: adjustedHour, minute: adjustedMinute };
                 isMoved = true;
             }
         }

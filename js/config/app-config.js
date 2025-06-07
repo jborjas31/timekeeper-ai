@@ -29,8 +29,8 @@ class AppConfig {
 
     static get UPDATE_INTERVALS() {
         return {
-            TIME_UPDATE: 60000,
-            GRID_REFRESH: 300000
+            TIME_UPDATE: 1000,     // Update clock every second
+            GRID_REFRESH: 10000    // Refresh grid every 10 seconds (for required task time updates)
         };
     }
 

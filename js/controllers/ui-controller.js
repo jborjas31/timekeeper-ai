@@ -41,25 +41,36 @@ class UIController {
             };
         }
         
-        this.boundHandlers.taskCompletion = (e) => {
+        // Task completion handler
+        const taskCompletionHandler = (e) => {
             this.handleTaskCompletion(e.detail);
         };
-        document.addEventListener('taskCompletion', this.boundHandlers.taskCompletion);
+        
+        document.addEventListener('taskCompletion', taskCompletionHandler);
+        this.boundHandlers.taskCompletion = taskCompletionHandler;
     }
 
     handleTaskCompletion(detail) {
         const { taskId, date, completed } = detail;
         const task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
         
-        if (!task) return;
+        if (!task || !window.app?.storageController) return;
         
-        if (window.app) {
-            if (completed) {
-                window.app.storageController.markTaskComplete(task, date);
-            } else {
-                window.app.storageController.markTaskIncomplete(task, date);
-            }
-            window.app.generateTimeGrid();
+        if (completed) {
+            window.app.storageController.markTaskComplete(task, date);
+        } else {
+            window.app.storageController.markTaskIncomplete(task, date);
+        }
+        
+        this.generateTimeGrid();
+    }
+
+    handleTaskEdit(detail) {
+        const { taskId } = detail;
+        const task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
+        
+        if (task) {
+            this.taskController.openTaskModal(task);
         }
     }
 
@@ -147,14 +158,16 @@ class UIController {
     }
 
     destroy() {
-        // Clear all intervals
         this.intervals.forEach(interval => clearInterval(interval));
         this.intervals = [];
         
-        // Remove event listeners
         if (this.boundHandlers.taskCompletion) {
             document.removeEventListener('taskCompletion', this.boundHandlers.taskCompletion);
             delete this.boundHandlers.taskCompletion;
+        }
+        if (this.boundHandlers.taskEdit) {
+            document.removeEventListener('taskEdit', this.boundHandlers.taskEdit);
+            delete this.boundHandlers.taskEdit;
         }
     }
 }
