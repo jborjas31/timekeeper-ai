@@ -84,6 +84,29 @@
         </div>
     </div>
     
-    <script src="app.js"></script>
+    <!-- Firebase SDK (Firestore only for single-user mode) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Utilities -->
+    <script src="js/utils/time-utils.js"></script>
+    <script src="js/utils/validation-utils.js"></script>
+    <script src="js/utils/debug-utils.js"></script>
+    <script src="js/config/app-config.js"></script>
+    <script src="js/config/firebase-config.js"></script>
+    
+    <!-- Core Engine -->
+    <script src="js/engine/schedule-calculator.js"></script>
+    
+    <!-- Renderers -->
+    <script src="js/renderer/time-grid-renderer.js"></script>
+    
+    <!-- Controllers -->
+    <script src="js/controllers/task-controller.js"></script>
+    <script src="js/controllers/storage-controller.js"></script>
+    <script src="js/controllers/ui-controller.js"></script>
+    
+    <!-- Main Application -->
+    <script src="js/main.js"></script>
 </body>
 </html>
