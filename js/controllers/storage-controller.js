@@ -89,8 +89,19 @@ class StorageController {
                 return;
             }
 
+            // Sanitize tasks data to remove undefined values before sending to Firestore
+            const sanitizedTasks = this.scheduleCalculator.tasks.map(task => {
+                const cleanTask = {};
+                Object.keys(task).forEach(key => {
+                    if (task[key] !== undefined) {
+                        cleanTask[key] = task[key];
+                    }
+                });
+                return cleanTask;
+            });
+
             const tasksData = {
-                tasks: this.scheduleCalculator.tasks,
+                tasks: sanitizedTasks,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 version: Date.now()
             };
@@ -103,10 +114,17 @@ class StorageController {
                 setTimeout(() => reject(new Error('Firestore timeout')), AppConfig.STORAGE.FIRESTORE_TIMEOUT)
             );
 
-            await Promise.race([
-                docRef.set(tasksData, { merge: true }),
-                timeoutPromise
-            ]);
+            try {
+                await Promise.race([
+                    docRef.set(tasksData, { merge: true }),
+                    timeoutPromise
+                ]);
+            } catch (timeoutError) {
+                if (timeoutError.message === 'Firestore timeout') {
+                    throw new Error('Sync timeout - operation taking too long');
+                }
+                throw timeoutError;
+            }
 
             console.log('🔄 Tasks synced to Firestore in background');
             this.syncRetryCount = 0; // Reset retry count on success

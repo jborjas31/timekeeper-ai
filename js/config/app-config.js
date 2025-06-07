@@ -18,7 +18,7 @@ class AppConfig {
             
             // Firestore settings (optimized for single-user offline-first operation)
             USE_FIRESTORE: true,
-            FIRESTORE_TIMEOUT: 5000, // 5 seconds (shorter for faster fallback)
+            FIRESTORE_TIMEOUT: 10000, // 10 seconds (more reliable for sync operations)
             OFFLINE_CACHE_SIZE: 40 * 1024 * 1024, // 40MB
             SYNC_RETRY_DELAY: 1000, // 1 second (faster retry for single user)
             OFFLINE_FIRST: true, // Always save to localStorage first

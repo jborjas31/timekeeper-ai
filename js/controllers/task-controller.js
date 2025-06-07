@@ -105,9 +105,13 @@ class TaskController {
             frequency: frequency,
             required: required,
             dependsOn: dependsOn,
-            bufferTime: bufferTime,
-            createdDate: this.currentEditingId ? undefined : new Date().toISOString() // Only set for new tasks
+            bufferTime: bufferTime
         };
+        
+        // Only add createdDate for new tasks (avoid undefined values)
+        if (!this.currentEditingId) {
+            task.createdDate = new Date().toISOString();
+        }
         
         DebugUtils.logTaskOperation(this.currentEditingId ? 'updated' : 'created', task);
         
