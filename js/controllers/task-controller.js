@@ -89,12 +89,12 @@ class TaskController {
         
         if (!validation.valid) {
             ErrorHandler.showNotification(validation.error, 'error');
-            return;
+            return null;
         }
         
         if (dependsOn && this.wouldCreateCycle(this.currentEditingId || ValidationUtils.generateTaskId(), dependsOn)) {
             ErrorHandler.showNotification('Cannot create dependency: this would create a circular dependency', 'error');
-            return;
+            return null;
         }
         
         const task = {

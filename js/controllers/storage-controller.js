@@ -79,9 +79,15 @@ class StorageController {
         if (this.syncingTasks) return;
         this.syncingTasks = true;
         
+        // Add to pending writes to show sync status
+        this.pendingWrites.set('tasks', { syncing: true });
+        
         try {
             const initialized = await this.initializeFirestore();
-            if (!initialized) return;
+            if (!initialized) {
+                this.pendingWrites.delete('tasks');
+                return;
+            }
 
             const tasksData = {
                 tasks: this.scheduleCalculator.tasks,
@@ -122,6 +128,10 @@ class StorageController {
             });
         } finally {
             this.syncingTasks = false;
+            // Ensure pending write is cleared even on error
+            if (this.pendingWrites.has('tasks') && this.pendingWrites.get('tasks').syncing) {
+                this.pendingWrites.delete('tasks');
+            }
         }
     }
 
@@ -363,11 +373,15 @@ class StorageController {
         this.syncingCompletions = true;
         this.saving = true;
         
+        // Add to pending writes to show sync status
+        this.pendingWrites.set('completions', { syncing: true });
+        
         try {
             const initialized = await this.initializeFirestore();
             if (!initialized) {
                 this.saving = false;
                 this.syncingCompletions = false;
+                this.pendingWrites.delete('completions');
                 return;
             }
 
@@ -407,6 +421,11 @@ class StorageController {
         } finally {
             this.saving = false;
             this.syncingCompletions = false;
+            
+            // Ensure pending write is cleared even on error
+            if (this.pendingWrites.has('completions') && this.pendingWrites.get('completions').syncing) {
+                this.pendingWrites.delete('completions');
+            }
             
             if (this.saveQueue.length > 0) {
                 this.saveQueue.shift();
