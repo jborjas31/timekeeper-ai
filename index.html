@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeKeeper</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+</head>
+<body>
+    <div class="app">
+        <!-- Navigation -->
+        <nav class="nav">
+            <button id="scheduleTab" class="nav-btn active">Schedule</button>
+            <button id="tasksTab" class="nav-btn">Tasks</button>
+        </nav>
+
+        <!-- Schedule Screen -->
+        <div id="scheduleScreen" class="screen active">
+            <header class="header">
+                <h1 id="currentTime"></h1>
+                <p id="currentDate"></p>
+            </header>
+            
+            <div class="time-grid" id="timeGrid">
+                <!-- Time slots will be generated here -->
+            </div>
+        </div>
+
+        <!-- Tasks Screen -->
+        <div id="tasksScreen" class="screen">
+            <header class="header">
+                <h1>Tasks</h1>
+                <button id="addTaskBtn" class="add-btn">+ Add Task</button>
+            </header>
+            
+            <div class="task-list" id="taskList">
+                <!-- Tasks will be listed here -->
+            </div>
+        </div>
+
+        <!-- Add/Edit Task Modal -->
+        <div id="taskModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalTitle">Add Task</h2>
+                <form id="taskForm">
+                    <input type="text" id="taskName" placeholder="Task name" required>
+                    
+                    <label>Time</label>
+                    <input type="time" id="taskTime" required>
+                    
+                    <label>Duration (minutes)</label>
+                    <input type="number" id="taskDuration" value="30" min="5" max="480">
+                    
+                    <label>Frequency</label>
+                    <select id="taskFrequency">
+                        <option value="once">One time</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                    
+                    <label>
+                        <input type="checkbox" id="taskRequired" checked>
+                        Required (follows me if missed)
+                    </label>
+                    
+                    <label>Depends on</label>
+                    <select id="taskDependsOn">
+                        <option value="">No dependency</option>
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    
+                    <label>Buffer time after dependency (minutes)</label>
+                    <input type="number" id="taskBufferTime" value="5" min="0" max="60">
+                    
+                    <div class="modal-actions">
+                        <button type="button" id="cancelBtn">Cancel</button>
+                        <button type="submit">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
