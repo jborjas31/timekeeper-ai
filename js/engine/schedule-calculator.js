@@ -63,9 +63,26 @@ class ScheduleCalculator {
     }
 
     shouldTaskOccurToday(task, date) {
+        // Check if task should start on this date based on scheduledDate
+        if (task.scheduledDate) {
+            const scheduledDate = new Date(task.scheduledDate);
+            const targetDate = new Date(date);
+            
+            // For "once" tasks, only show on exact scheduled date
+            if (task.frequency === AppConfig.TASK_FREQUENCIES.ONCE) {
+                return TimeUtils.formatDateKey(scheduledDate) === TimeUtils.formatDateKey(targetDate);
+            }
+            
+            // For recurring tasks, only show on/after scheduled date
+            if (targetDate < scheduledDate) {
+                return false;
+            }
+        }
+        
         switch (task.frequency) {
             case AppConfig.TASK_FREQUENCIES.ONCE: 
-                return TimeUtils.isToday(date);
+                // Without scheduledDate, treat as legacy "today only" task
+                return !task.scheduledDate && TimeUtils.isToday(date);
             case AppConfig.TASK_FREQUENCIES.DAILY: 
                 return true;
             case AppConfig.TASK_FREQUENCIES.WEEKLY: 

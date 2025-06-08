@@ -40,8 +40,18 @@ class TaskController {
             modalTitle.textContent = 'Add Task';
             const taskRequired = document.getElementById('taskRequired');
             const taskBufferTime = document.getElementById('taskBufferTime');
+            const taskScheduledDate = document.getElementById('taskScheduledDate');
             if (taskRequired) taskRequired.checked = true;
             if (taskBufferTime) taskBufferTime.value = 5;
+            
+            // Pre-fill with currently viewed date
+            if (taskScheduledDate && window.app?.uiController?.currentDate) {
+                const currentDate = window.app.uiController.currentDate;
+                const year = currentDate.getFullYear();
+                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const day = String(currentDate.getDate()).padStart(2, '0');
+                taskScheduledDate.value = `${year}-${month}-${day}`;
+            }
         }
         
         console.log('✅ Opening modal - setting display to block');
@@ -98,6 +108,18 @@ class TaskController {
         safeSetValue('taskRequired', task.required);
         safeSetValue('taskDependsOn', task.dependsOn || '');
         safeSetValue('taskBufferTime', task.bufferTime || AppConfig.SCHEDULE.DEFAULT_BUFFER_TIME);
+        
+        // Handle scheduled date
+        if (task.scheduledDate) {
+            safeSetValue('taskScheduledDate', task.scheduledDate);
+        } else {
+            // For existing tasks without scheduled date, use today's date
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            safeSetValue('taskScheduledDate', `${year}-${month}-${day}`);
+        }
     }
 
     saveTask(e) {
@@ -110,6 +132,7 @@ class TaskController {
         const required = document.getElementById('taskRequired').checked;
         const dependsOn = document.getElementById('taskDependsOn').value || null;
         const bufferTime = parseInt(document.getElementById('taskBufferTime').value) || AppConfig.SCHEDULE.DEFAULT_BUFFER_TIME;
+        const scheduledDate = document.getElementById('taskScheduledDate').value;
         
         const taskData = { name, time, duration, bufferTime };
         const validation = ValidationUtils.validateTaskData(taskData);
@@ -132,7 +155,8 @@ class TaskController {
             frequency: frequency,
             required: required,
             dependsOn: dependsOn,
-            bufferTime: bufferTime
+            bufferTime: bufferTime,
+            scheduledDate: scheduledDate
         };
         
         // Only add createdDate for new tasks (avoid undefined values)
