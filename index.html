@@ -34,6 +34,14 @@
             <header class="header">
                 <h1 id="currentTime"></h1>
                 <p id="currentDate"></p>
+                
+                <!-- Date Navigation Controls -->
+                <div class="date-navigation">
+                    <button id="prevDayBtn" class="btn btn-outline btn-sm nav-arrow-btn" title="Previous day" aria-label="Previous day">‹</button>
+                    <button id="todayBtn" class="btn btn-primary btn-md today-btn">Today</button>
+                    <button id="nextDayBtn" class="btn btn-outline btn-sm nav-arrow-btn" title="Next day" aria-label="Next day">›</button>
+                    <input type="date" id="datePicker" class="date-picker" title="Select date" aria-label="Select date">
+                </div>
             </header>
             
             <div class="time-grid" id="timeGrid">
@@ -45,7 +53,7 @@
         <div id="tasksScreen" class="screen">
             <header class="header">
                 <h1>Tasks</h1>
-                <button id="addTaskBtn" class="add-btn">+ Add Task</button>
+                <button id="addTaskBtn" class="btn btn-success btn-md add-btn">+ Add Task</button>
             </header>
             
             <div class="task-list" id="taskList">
@@ -89,8 +97,8 @@
                     <input type="number" id="taskBufferTime" value="5" min="0" max="60">
                     
                     <div class="modal-actions">
-                        <button type="button" id="cancelBtn">Cancel</button>
-                        <button type="submit">Save</button>
+                        <button type="button" id="cancelBtn" class="btn btn-secondary btn-md">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-md">Save</button>
                     </div>
                 </form>
             </div>

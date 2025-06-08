@@ -84,6 +84,222 @@ body {
     font-size: 0.9rem;
 }
 
+/* Date Navigation */
+.date-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.nav-arrow-btn {
+    background: white;
+    border: 1px solid #d1d5db;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: #374151;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    touch-action: manipulation;
+}
+
+.nav-arrow-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.nav-arrow-btn:active {
+    transform: scale(0.95);
+    background: #e5e7eb;
+}
+
+.nav-arrow-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.today-btn {
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+}
+
+.today-btn:hover:not(:disabled) {
+    background: #5b5ec7;
+}
+
+.today-btn:active {
+    transform: scale(0.98);
+    background: #4f46e5;
+}
+
+.today-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.date-picker {
+    background: white;
+    border: 1px solid #d1d5db;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 36px;
+}
+
+.date-picker:hover {
+    border-color: #9ca3af;
+}
+
+.date-picker:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Unified Button System */
+.btn {
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    touch-action: manipulation;
+}
+
+.btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Button Sizes */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    min-height: 32px;
+}
+
+.btn-md {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    min-height: 36px;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    min-height: 44px;
+}
+
+/* Button Variants */
+.btn-primary {
+    background: #6366f1;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #5b5ec7;
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+    background: #4f46e5;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #059669;
+}
+
+.btn-success:active {
+    transform: scale(0.98);
+    background: #047857;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #dc2626;
+}
+
+.btn-danger:active {
+    transform: scale(0.98);
+    background: #b91c1c;
+}
+
+.btn-secondary {
+    background: #e2e8f0;
+    color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #cbd5e1;
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
+    background: #94a3b8;
+}
+
+.btn-outline {
+    background: white;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.btn-outline:active {
+    transform: scale(0.95);
+    background: #e5e7eb;
+}
+
+/* Legacy button classes (updated to use new system) */
 .add-btn {
     background: #10b981;
     color: white;
@@ -91,12 +307,29 @@ body {
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    min-height: 36px;
     margin-top: 0.5rem;
 }
 
-.add-btn:hover {
+.add-btn:hover:not(:disabled) {
     background: #059669;
+}
+
+.add-btn:active {
+    transform: scale(0.98);
+    background: #047857;
+}
+
+.add-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* Time Grid */
@@ -522,6 +755,43 @@ body {
     
     .header h1 {
         font-size: 1.75rem;
+    }
+    
+    /* Date navigation mobile optimization */
+    .date-navigation {
+        gap: 0.75rem;
+        padding: 1rem;
+        margin-top: 1.25rem;
+    }
+    
+    .nav-arrow-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.4rem;
+        touch-action: manipulation;
+    }
+    
+    .nav-arrow-btn:active {
+        transform: scale(0.9);
+    }
+    
+    .today-btn {
+        padding: 0.75rem 1.25rem;
+        font-size: 1rem;
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+    
+    .today-btn:active {
+        transform: scale(0.95);
+    }
+    
+    .date-picker {
+        padding: 0.75rem;
+        font-size: 1rem;
+        min-height: 44px;
+        touch-action: manipulation;
+        min-width: 140px;
     }
     
     /* Time grid mobile optimization */

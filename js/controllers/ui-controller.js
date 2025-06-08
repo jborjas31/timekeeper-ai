@@ -4,13 +4,14 @@ class UIController {
         this.timeGridRenderer = timeGridRenderer;
         this.taskController = taskController;
         this.currentHour = TimeUtils.getStableCurrentHour();
+        this.currentDate = new Date(); // Track selected date for time grid
         this.intervals = [];
         this.boundHandlers = {};
         this.lastUserInteractionTime = 0;
     }
 
     bindEvents() {
-        // Helper function to safely bind events
+        // Helper function to safely bind events (reverted to working approach)
         const safeBindEvent = (elementId, event, handler) => {
             const element = document.getElementById(elementId);
             if (element) {
@@ -25,6 +26,20 @@ class UIController {
         safeBindEvent('tasksTab', 'onclick', () => this.showScreen('tasks'));
         safeBindEvent('addTaskBtn', 'onclick', () => this.taskController.openTaskModal());
         safeBindEvent('cancelBtn', 'onclick', () => this.taskController.closeModal());
+        
+        // Date navigation controls
+        safeBindEvent('prevDayBtn', 'onclick', () => this.previousDay());
+        safeBindEvent('nextDayBtn', 'onclick', () => this.nextDay());
+        safeBindEvent('todayBtn', 'onclick', () => this.goToToday());
+        
+        const datePicker = document.getElementById('datePicker');
+        if (datePicker) {
+            datePicker.onchange = (e) => {
+                if (e.target.value) {
+                    this.setDate(new Date(e.target.value));
+                }
+            };
+        }
         
         const taskForm = document.getElementById('taskForm');
         if (taskForm) {
@@ -135,17 +150,12 @@ class UIController {
             minute: '2-digit',
             hour12: true 
         });
-        const dateString = now.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric'
-        });
         
         const currentTimeEl = document.getElementById('currentTime');
-        const currentDateEl = document.getElementById('currentDate');
-        
         if (currentTimeEl) currentTimeEl.textContent = timeString;
-        if (currentDateEl) currentDateEl.textContent = dateString;
+        
+        // Update date display separately using selected date
+        this.updateDateDisplay();
         
         const stableCurrentHour = TimeUtils.getStableCurrentHour();
         if (stableCurrentHour !== this.currentHour) {
@@ -164,7 +174,7 @@ class UIController {
         try {
             this.timeGridRenderer.setContainer(grid);
             
-            const scheduleData = this.scheduleCalculator.calculateDaySchedule(new Date());
+            const scheduleData = this.scheduleCalculator.calculateDaySchedule(this.currentDate);
             
             DebugUtils.logSchedule(scheduleData);
             
@@ -172,6 +182,58 @@ class UIController {
         } catch (e) {
             console.error('Error generating time grid:', e);
             ErrorHandler.showNotification('Error updating schedule display', 'error', 3000);
+        }
+    }
+
+    // Date navigation methods
+    previousDay() {
+        const newDate = new Date(this.currentDate);
+        newDate.setDate(newDate.getDate() - 1);
+        this.setDate(newDate);
+    }
+
+    nextDay() {
+        const newDate = new Date(this.currentDate);
+        newDate.setDate(newDate.getDate() + 1);
+        this.setDate(newDate);
+    }
+
+    goToToday() {
+        this.setDate(new Date());
+    }
+
+    setDate(date) {
+        this.currentDate = new Date(date);
+        this.updateDateDisplay();
+        this.generateTimeGrid();
+    }
+
+    regenerateUI() {
+        this.generateTimeGrid();
+        if (document.getElementById('tasksScreen').classList.contains('active')) {
+            this.taskController.renderTaskList();
+        }
+    }
+
+    updateDateDisplay() {
+        const currentDateEl = document.getElementById('currentDate');
+        if (currentDateEl) {
+            const dateString = this.currentDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
+            currentDateEl.textContent = dateString;
+        }
+        
+        // Keep date picker in sync
+        const datePicker = document.getElementById('datePicker');
+        if (datePicker) {
+            const year = this.currentDate.getFullYear();
+            const month = String(this.currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(this.currentDate.getDate()).padStart(2, '0');
+            datePicker.value = `${year}-${month}-${day}`;
         }
     }
 
@@ -193,13 +255,10 @@ class UIController {
         this.intervals.forEach(interval => clearInterval(interval));
         this.intervals = [];
         
+        // Clean up document-level event listeners
         if (this.boundHandlers.taskCompletion) {
             document.removeEventListener('taskCompletion', this.boundHandlers.taskCompletion);
             delete this.boundHandlers.taskCompletion;
-        }
-        if (this.boundHandlers.taskEdit) {
-            document.removeEventListener('taskEdit', this.boundHandlers.taskEdit);
-            delete this.boundHandlers.taskEdit;
         }
     }
 }

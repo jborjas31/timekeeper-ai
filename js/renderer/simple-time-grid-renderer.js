@@ -1,6 +1,7 @@
 class SimpleTimeGridRenderer {
     constructor() {
         this.container = null;
+        this.eventListeners = []; // Track event listeners for cleanup
     }
 
     setContainer(element) {
@@ -9,6 +10,9 @@ class SimpleTimeGridRenderer {
 
     render(scheduleData) {
         if (!this.container) return;
+        
+        // Cleanup previous event listeners
+        this.cleanup();
         
         this.container.innerHTML = '';
         
@@ -123,7 +127,7 @@ class SimpleTimeGridRenderer {
         
         // Touch feedback handled by CSS
         
-        checkbox.addEventListener('change', (e) => {
+        const changeHandler = (e) => {
             e.stopPropagation();
             const isCompleted = e.target.checked;
             
@@ -153,7 +157,10 @@ class SimpleTimeGridRenderer {
             } else {
                 console.error('UI Controller not available for task completion');
             }
-        });
+        };
+        
+        checkbox.addEventListener('change', changeHandler);
+        this.eventListeners.push({ element: checkbox, event: 'change', handler: changeHandler });
         
         // Task info
         const info = document.createElement('div');
@@ -194,13 +201,16 @@ class SimpleTimeGridRenderer {
         `;
         editBtn.title = 'Edit task';
         
-        editBtn.addEventListener('click', (e) => {
+        const clickHandler = (e) => {
             e.stopPropagation();
             const actualTask = window.app.scheduleCalculator.tasks.find(t => t.id === task.taskId);
             if (actualTask) {
                 window.app.taskController.openTaskModal(actualTask);
             }
-        });
+        };
+        
+        editBtn.addEventListener('click', clickHandler);
+        this.eventListeners.push({ element: editBtn, event: 'click', handler: clickHandler });
         
         container.appendChild(checkbox);
         container.appendChild(info);
@@ -231,7 +241,13 @@ class SimpleTimeGridRenderer {
     }
 
     cleanup() {
-        // No complex cleanup needed for simple renderer
+        // Remove all tracked event listeners
+        this.eventListeners.forEach(({ element, event, handler }) => {
+            if (element && element.removeEventListener) {
+                element.removeEventListener(event, handler);
+            }
+        });
+        this.eventListeners = [];
     }
 
     destroy() {

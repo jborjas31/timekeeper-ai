@@ -20,21 +20,33 @@ class TimeUtils {
             
             return { hour, minute };
         } catch (e) {
-            console.error('Error parsing time:', timeString, e);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(e, `TimeUtils.parse12Hour(${timeString})`);
+            } else {
+                console.error('Error parsing time:', timeString, e);
+            }
             return { hour: 9, minute: 0 };
         }
     }
 
     static format12Hour(timeObj) {
         if (!timeObj || typeof timeObj.hour !== 'number' || typeof timeObj.minute !== 'number') {
-            console.error('Invalid timeObj in format12Hour:', timeObj);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid timeObj in format12Hour'), 'TimeUtils.format12Hour', () => {});
+            } else {
+                console.error('Invalid timeObj in format12Hour:', timeObj);
+            }
             return '9:00 AM'; // Safe fallback
         }
         
         const { hour, minute } = timeObj;
         
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-            console.error('Invalid time values in format12Hour:', timeObj);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid time values in format12Hour'), 'TimeUtils.format12Hour', () => {});
+            } else {
+                console.error('Invalid time values in format12Hour:', timeObj);
+            }
             return '9:00 AM'; // Safe fallback
         }
         
@@ -56,7 +68,11 @@ class TimeUtils {
 
     static convertTo24Hour(time12h) {
         if (!time12h || typeof time12h !== 'string') {
-            console.error('Invalid input to convertTo24Hour:', time12h);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid input to convertTo24Hour'), 'TimeUtils.convertTo24Hour', () => {});
+            } else {
+                console.error('Invalid input to convertTo24Hour:', time12h);
+            }
             return '09:00'; // Safe fallback
         }
         
@@ -92,14 +108,22 @@ class TimeUtils {
             
             return `${hours.toString().padStart(2, '0')}:${minutes}`;
         } catch (e) {
-            console.error('Error converting time to 24h:', time12h, e);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(e, `TimeUtils.convertTo24Hour(${time12h})`);
+            } else {
+                console.error('Error converting time to 24h:', time12h, e);
+            }
             return '09:00'; // Safe fallback
         }
     }
 
     static convertTo12Hour(time24h) {
         if (!time24h || typeof time24h !== 'string') {
-            console.error('Invalid input to convertTo12Hour:', time24h);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid input to convertTo12Hour'), 'TimeUtils.convertTo12Hour', () => {});
+            } else {
+                console.error('Invalid input to convertTo12Hour:', time24h);
+            }
             return '9:00 AM'; // Safe fallback
         }
         
@@ -126,19 +150,31 @@ class TimeUtils {
             
             return `${hours}:${minutes} ${period}`;
         } catch (e) {
-            console.error('Error converting time to 12h:', time24h, e);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(e, `TimeUtils.convertTo12Hour(${time24h})`);
+            } else {
+                console.error('Error converting time to 12h:', time24h, e);
+            }
             return '9:00 AM'; // Safe fallback
         }
     }
 
     static addMinutes(timeObj, minutes) {
         if (!timeObj || typeof timeObj.hour !== 'number' || typeof timeObj.minute !== 'number') {
-            console.error('Invalid timeObj in addMinutes:', timeObj);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid timeObj in addMinutes'), 'TimeUtils.addMinutes', () => {});
+            } else {
+                console.error('Invalid timeObj in addMinutes:', timeObj);
+            }
             return { hour: 9, minute: 0 }; // Safe fallback
         }
         
         if (typeof minutes !== 'number' || isNaN(minutes)) {
-            console.error('Invalid minutes in addMinutes:', minutes);
+            if (window.ErrorHandler) {
+                ErrorHandler.handleError(new Error('Invalid minutes in addMinutes'), 'TimeUtils.addMinutes', () => {});
+            } else {
+                console.error('Invalid minutes in addMinutes:', minutes);
+            }
             return timeObj; // Return original if minutes invalid
         }
         
