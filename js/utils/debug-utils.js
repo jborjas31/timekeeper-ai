@@ -59,8 +59,8 @@ class DebugUtils {
                 isOnline: sc.isOnline,
                 offlineMode: sc.offlineMode,
                 pendingWrites: sc.pendingWrites.size,
-                userId: sc.userId,
-                syncRetryCount: sc.syncRetryCount
+                syncRetryCount: sc.syncRetryCount,
+                mode: 'single-user'
             };
         }
         return null;

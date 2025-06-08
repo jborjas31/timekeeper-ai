@@ -19,19 +19,13 @@ class FirebaseConfig {
         };
     }
 
-    static get AUTH_SETTINGS() {
-        return {
-            SINGLE_USER_MODE: true, // Single user - no authentication needed
-            OFFLINE_FIRST: true // Prioritize localStorage for reliability
-        };
-    }
+    // Single-user mode - no authentication needed
 
     static initialize() {
         try {
             // Initialize Firebase
             if (!firebase.apps.length) {
                 firebase.initializeApp(this.CONFIG);
-                console.log('✅ Firebase initialized successfully (single-user mode)');
             }
 
             // Initialize Firestore
@@ -39,11 +33,7 @@ class FirebaseConfig {
             
             // Enable offline persistence for better offline support
             db.enablePersistence({ synchronizeTabs: true })
-                .then(() => {
-                    console.log('✅ Firestore offline persistence enabled');
-                })
                 .catch((err) => {
-                    console.warn('⚠️ Firestore persistence failed:', err);
                     if (err.code === 'failed-precondition') {
                         console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
                     } else if (err.code === 'unimplemented') {

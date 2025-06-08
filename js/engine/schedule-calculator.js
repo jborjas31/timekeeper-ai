@@ -210,7 +210,7 @@ class ScheduleCalculator {
         }
 
         return {
-            id: `${task.id}-${date.toDateString()}`,
+            id: `${task.id}-${TimeUtils.formatDateKey(date)}`,
             taskId: task.id,
             name: task.name,
             startTime: finalStartTime,

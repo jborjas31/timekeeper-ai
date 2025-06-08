@@ -113,22 +113,46 @@ class SimpleTimeGridRenderer {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = task.completed;
-        checkbox.style.cssText = 'cursor: pointer;';
+        checkbox.style.cssText = `
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            margin: 2px;
+            touch-action: manipulation;
+        `;
+        
+        // Touch feedback handled by CSS
         
         checkbox.addEventListener('change', (e) => {
             e.stopPropagation();
             const isCompleted = e.target.checked;
             
-            this.updateTaskVisualState(container, name, isCompleted, task.required);
+            // Visual feedback and haptic response
             
-            const event = new CustomEvent('taskCompletion', {
-                detail: { 
-                    taskId: task.taskId, 
-                    date: task.date, 
-                    completed: isCompleted 
-                }
-            });
-            document.dispatchEvent(event);
+            // Find the name element for visual updates
+            const nameElement = container.querySelector('div > div:first-child');
+            this.updateTaskVisualState(container, nameElement, isCompleted, task.required);
+            
+            // Add haptic feedback for supported devices
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            // Dispatch the completion event with proper date handling
+            const completionDate = task.date || new Date();
+            const eventDetail = { 
+                taskId: task.taskId, 
+                date: completionDate, 
+                completed: isCompleted,
+                timestamp: Date.now()
+            };
+            
+            // Direct method call - more reliable than events
+            if (window.app && window.app.uiController && window.app.uiController.handleTaskCompletion) {
+                window.app.uiController.handleTaskCompletion(eventDetail);
+            } else {
+                console.error('UI Controller not available for task completion');
+            }
         });
         
         // Task info
@@ -155,11 +179,18 @@ class SimpleTimeGridRenderer {
         editBtn.textContent = '✏️';
         editBtn.style.cssText = `
             background: none;
-            border: none;
+            border: 1px solid transparent;
             cursor: pointer;
-            font-size: 12px;
-            padding: 2px 4px;
-            border-radius: 2px;
+            font-size: 14px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            min-width: 32px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
         `;
         editBtn.title = 'Edit task';
         

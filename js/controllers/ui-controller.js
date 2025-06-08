@@ -6,6 +6,7 @@ class UIController {
         this.currentHour = TimeUtils.getStableCurrentHour();
         this.intervals = [];
         this.boundHandlers = {};
+        this.lastUserInteractionTime = 0;
     }
 
     bindEvents() {
@@ -19,6 +20,7 @@ class UIController {
             }
         };
         
+        // Simple event binding (mobile CSS handles touch targets)
         safeBindEvent('scheduleTab', 'onclick', () => this.showScreen('schedule'));
         safeBindEvent('tasksTab', 'onclick', () => this.showScreen('tasks'));
         safeBindEvent('addTaskBtn', 'onclick', () => this.taskController.openTaskModal());
@@ -41,7 +43,7 @@ class UIController {
             };
         }
         
-        // Task completion handler
+        // Task completion handler - using direct method calls for reliability
         const taskCompletionHandler = (e) => {
             this.handleTaskCompletion(e.detail);
         };
@@ -51,18 +53,42 @@ class UIController {
     }
 
     handleTaskCompletion(detail) {
-        const { taskId, date, completed } = detail;
-        const task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
-        
-        if (!task || !window.app?.storageController) return;
-        
-        if (completed) {
-            window.app.storageController.markTaskComplete(task, date);
-        } else {
-            window.app.storageController.markTaskIncomplete(task, date);
+        try {
+            const { taskId, date, completed } = detail;
+            const task = this.scheduleCalculator.tasks.find(t => t.id === taskId);
+            
+            if (!task || !window.app?.storageController) return;
+            
+            // Mark this as a user interaction to prevent automatic refresh conflicts
+            this.lastUserInteractionTime = Date.now();
+            
+            // Update completion state immediately and synchronously
+            const dateStr = TimeUtils.formatDateKey(date);
+            const completionKey = `${task.id}-${dateStr}`;
+            
+            if (completed) {
+                // Update schedule calculator state immediately
+                this.scheduleCalculator.completions[completionKey] = true;
+                // Save to storage
+                window.app.storageController.markTaskComplete(task, date);
+            } else {
+                // Update schedule calculator state immediately
+                delete this.scheduleCalculator.completions[completionKey];
+                // Save to storage
+                window.app.storageController.markTaskIncomplete(task, date);
+            }
+            
+            // Regenerate grid with updated completion state
+            this.generateTimeGrid();
+            
+            DebugUtils.logTaskOperation(completed ? 'completed' : 'uncompleted', { 
+                name: task.name, 
+                date: dateStr,
+                immediate: true 
+            });
+        } catch (error) {
+            console.error('Error in handleTaskCompletion:', error);
         }
-        
-        this.generateTimeGrid();
     }
 
     handleTaskEdit(detail) {
@@ -154,7 +180,13 @@ class UIController {
         this.destroy();
         
         this.intervals.push(setInterval(() => this.updateTime(), AppConfig.UPDATE_INTERVALS.TIME_UPDATE));
-        this.intervals.push(setInterval(() => this.generateTimeGrid(), AppConfig.UPDATE_INTERVALS.GRID_REFRESH));
+        this.intervals.push(setInterval(() => {
+            // Don't auto-refresh if user recently interacted with completion state
+            const timeSinceLastInteraction = Date.now() - this.lastUserInteractionTime;
+            if (timeSinceLastInteraction >= 3000) {
+                this.generateTimeGrid();
+            }
+        }, AppConfig.UPDATE_INTERVALS.GRID_REFRESH));
     }
 
     destroy() {

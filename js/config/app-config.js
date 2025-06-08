@@ -18,12 +18,12 @@ class AppConfig {
             
             // Firestore settings (optimized for single-user offline-first operation)
             USE_FIRESTORE: true,
-            FIRESTORE_TIMEOUT: 10000, // 10 seconds (more reliable for sync operations)
+            FIRESTORE_TIMEOUT: 5000, // 5 seconds (faster for better UX)
             OFFLINE_CACHE_SIZE: 40 * 1024 * 1024, // 40MB
-            SYNC_RETRY_DELAY: 1000, // 1 second (faster retry for single user)
+            SYNC_RETRY_DELAY: 500, // 500ms (faster retry for single user)
             OFFLINE_FIRST: true, // Always save to localStorage first
             BACKGROUND_SYNC: true, // Sync to Firestore in background when online
-            MAX_RETRY_ATTEMPTS: 3 // Limit retry attempts to avoid blocking
+            MAX_RETRY_ATTEMPTS: 2 // Reduce attempts for faster fallback
         };
     }
 

@@ -210,8 +210,8 @@ class TaskController {
                         <p>${task.time} • ${task.duration} min • ${task.frequency} • ${task.required ? 'Required' : 'Optional'}${dependencyInfo}</p>
                     </div>
                     <div class="task-actions">
-                        <button class="edit-btn" onclick="app.taskController.openTaskModal('${ValidationUtils.escapeForAttribute(task.id)}'); app.regenerateUI();">Edit</button>
-                        <button class="delete-btn" onclick="app.taskController.deleteTask('${ValidationUtils.escapeForAttribute(task.id)}').then(deleted => { if(deleted) app.saveAndRefresh(); })">Delete</button>
+                        <button class="edit-btn" onclick="if('${ValidationUtils.escapeForAttribute(task.id)}') { app.taskController.openTaskModal('${ValidationUtils.escapeForAttribute(task.id)}'); app.regenerateUI(); }">Edit</button>
+                        <button class="delete-btn" onclick="if('${ValidationUtils.escapeForAttribute(task.id)}') { app.taskController.deleteTask('${ValidationUtils.escapeForAttribute(task.id)}').then(deleted => { if(deleted) app.saveAndRefresh(); }); }">Delete</button>
                     </div>
                 </div>
             `;

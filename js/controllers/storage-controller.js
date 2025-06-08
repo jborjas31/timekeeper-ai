@@ -6,6 +6,7 @@ class StorageController {
         this.saveDebounceTimer = null;
         this.isOnline = navigator.onLine;
         this.pendingWrites = new Map();
+        this.pendingCompletions = new Map(); // Track recent completion changes
         this.syncRetryCount = 0;
         this.lastSyncAttempt = 0;
         this.offlineMode = false; // True when Firebase is unavailable
@@ -126,7 +127,6 @@ class StorageController {
                 throw timeoutError;
             }
 
-            console.log('🔄 Tasks synced to Firestore in background');
             this.syncRetryCount = 0; // Reset retry count on success
             
             // Clear pending writes for tasks since sync was successful
@@ -199,7 +199,6 @@ class StorageController {
                     if (JSON.stringify(this.scheduleCalculator.tasks) !== JSON.stringify(firestoreTasks)) {
                         this.scheduleCalculator.tasks = firestoreTasks;
                         this.saveTasksToLocalStorage(); // Keep localStorage in sync
-                        console.log(`🔄 Tasks synced from Firestore (${firestoreTasks.length} tasks)`);
                         
                         // Regenerate UI if needed
                         if (window.app && window.app.regenerateUI) {
@@ -209,7 +208,6 @@ class StorageController {
                 }
             } else if (this.scheduleCalculator.tasks.length > 0) {
                 // Migrate local data to Firestore
-                console.log('📤 Uploading local tasks to Firestore');
                 this.backgroundSyncTasks();
             }
 
@@ -243,7 +241,6 @@ class StorageController {
                         if (JSON.stringify(this.scheduleCalculator.tasks) !== JSON.stringify(newTasks)) {
                             this.scheduleCalculator.tasks = newTasks;
                             this.saveTasksToLocalStorage(); // Keep localStorage in sync
-                            console.log('🔄 Tasks updated from Firestore (external change)');
                             
                             // Regenerate UI without triggering saves
                             if (window.app && window.app.regenerateUI) {
@@ -294,21 +291,24 @@ class StorageController {
                 const data = doc.data();
                 const firestoreCompletions = data.completions || {};
                 
-                // Only update if different from local data
-                if (JSON.stringify(this.scheduleCalculator.completions) !== JSON.stringify(firestoreCompletions)) {
-                    this.scheduleCalculator.completions = firestoreCompletions;
+                // Merge Firestore data with local data
+                const mergedCompletions = this.mergeCompletionStates(this.scheduleCalculator.completions, firestoreCompletions);
+                
+                if (JSON.stringify(this.scheduleCalculator.completions) !== JSON.stringify(mergedCompletions)) {
+                    this.scheduleCalculator.completions = mergedCompletions;
                     this.cleanOldCompletions();
-                    this.saveCompletionsToLocalStorage(); // Keep localStorage in sync
-                    console.log('🔄 Completions synced from Firestore');
+                    this.saveCompletionsToLocalStorage();
                     
-                    // Regenerate UI if needed
-                    if (window.app && window.app.generateTimeGrid) {
-                        window.app.generateTimeGrid();
+                    // Regenerate UI if no recent user interaction
+                    if (window.app && window.app.uiController) {
+                        const timeSinceLastInteraction = Date.now() - (window.app.uiController.lastUserInteractionTime || 0);
+                        if (timeSinceLastInteraction >= 3000) {
+                            window.app.generateTimeGrid();
+                        }
                     }
                 }
             } else if (Object.keys(this.scheduleCalculator.completions).length > 0) {
                 // Migrate local data to Firestore
-                console.log('📤 Uploading local completions to Firestore');
                 this.backgroundSyncCompletions();
             }
 
@@ -332,16 +332,27 @@ class StorageController {
                     if (data.completions) {
                         const firestoreCompletions = data.completions;
                         
-                        // Only update if completions actually changed
-                        if (JSON.stringify(this.scheduleCalculator.completions) !== JSON.stringify(firestoreCompletions)) {
-                            this.scheduleCalculator.completions = firestoreCompletions;
+                        // Merge real-time Firestore updates with local data
+                        const mergedCompletions = this.mergeCompletionStates(this.scheduleCalculator.completions, firestoreCompletions);
+                        
+                        if (JSON.stringify(this.scheduleCalculator.completions) !== JSON.stringify(mergedCompletions)) {
+                            this.scheduleCalculator.completions = mergedCompletions;
                             this.cleanOldCompletions();
-                            this.saveCompletionsToLocalStorage(); // Keep localStorage in sync
-                            console.log('🔄 Completions updated from Firestore (external change)');
+                            this.saveCompletionsToLocalStorage();
                             
-                            // Regenerate UI without triggering saves
-                            if (window.app && window.app.generateTimeGrid) {
-                                window.app.generateTimeGrid();
+                            // Regenerate UI if no recent user interaction
+                            if (window.app && window.app.uiController) {
+                                const timeSinceLastInteraction = Date.now() - (window.app.uiController.lastUserInteractionTime || 0);
+                                if (timeSinceLastInteraction >= 3000) {
+                                    window.app.generateTimeGrid();
+                                } else {
+                                    // Schedule update after cooldown
+                                    setTimeout(() => {
+                                        if (window.app && window.app.generateTimeGrid) {
+                                            window.app.generateTimeGrid();
+                                        }
+                                    }, 3000);
+                                }
                             }
                         }
                     }
@@ -420,10 +431,12 @@ class StorageController {
                 timeoutPromise
             ]);
 
-            console.log('🔄 Completions synced to Firestore in background');
-            
-            // Clear pending writes for completions since sync was successful
+            // Clear pending writes and protections after successful sync
             this.pendingWrites.delete('completions');
+            
+            if (this.pendingCompletions) {
+                this.pendingCompletions.clear();
+            }
             
             // Update sync status indicator
             if (window.app && window.app.updateSyncStatus) {
@@ -489,6 +502,30 @@ class StorageController {
         }
     }
 
+    mergeCompletionStates(localCompletions, firestoreCompletions) {
+        // Single-user merge: prioritize local changes, add remote additions
+        const merged = { ...localCompletions };
+        
+        Object.keys(firestoreCompletions).forEach(key => {
+            const firestoreValue = firestoreCompletions[key];
+            const localValue = localCompletions[key];
+            
+            // Skip recent local changes to prevent overwrites
+            if (this.isPendingCompletion(key)) return;
+            
+            // Add missing completions from Firestore
+            if (localValue === undefined) {
+                merged[key] = firestoreValue;
+            }
+            // Resolve conflicts: "completed" wins
+            else if (localValue !== firestoreValue) {
+                merged[key] = localValue === true || firestoreValue === true;
+            }
+        });
+        
+        return merged;
+    }
+
     cleanOldCompletions() {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - AppConfig.STORAGE.COMPLETION_RETENTION_DAYS);
@@ -502,22 +539,67 @@ class StorageController {
         });
     }
 
-    async markTaskComplete(task, date) {
+    markTaskComplete(task, date) {
         const dateStr = TimeUtils.formatDateKey(date);
         const completionKey = `${task.id}-${dateStr}`;
+        
+        // Ensure completion state is set immediately
         this.scheduleCalculator.completions[completionKey] = true;
+        
+        // Save immediately to localStorage for instant persistence
+        this.saveCompletionsToLocalStorage();
+        
+        // Mark as pending sync to protect from overwrites
+        this.markPendingCompletion(completionKey);
+        
+        // Trigger background sync (debounced)
         this.saveCompletions();
         
-        DebugUtils.logTaskOperation('completed', { name: task.name, date: dateStr });
+        DebugUtils.logTaskOperation('completed', { name: task.name, date: dateStr, storage: true });
     }
 
-    async markTaskIncomplete(task, date) {
+    markTaskIncomplete(task, date) {
         const dateStr = TimeUtils.formatDateKey(date);
         const completionKey = `${task.id}-${dateStr}`;
+        
+        // Ensure completion state is removed immediately
         delete this.scheduleCalculator.completions[completionKey];
+        
+        // Save immediately to localStorage for instant persistence
+        this.saveCompletionsToLocalStorage();
+        
+        // Mark as pending sync to protect from overwrites
+        this.markPendingCompletion(completionKey);
+        
+        // Trigger background sync (debounced)
         this.saveCompletions();
         
-        DebugUtils.logTaskOperation('uncompleted', { name: task.name, date: dateStr });
+        DebugUtils.logTaskOperation('uncompleted', { name: task.name, date: dateStr, storage: true });
+    }
+
+    markPendingCompletion(completionKey) {
+        if (!this.pendingCompletions) {
+            this.pendingCompletions = new Map();
+        }
+        
+        this.pendingCompletions.set(completionKey, Date.now());
+        
+        // Auto-clear after 5 seconds
+        setTimeout(() => {
+            if (this.pendingCompletions && this.pendingCompletions.has(completionKey)) {
+                this.pendingCompletions.delete(completionKey);
+            }
+        }, 5000);
+    }
+
+    isPendingCompletion(completionKey) {
+        if (!this.pendingCompletions) return false;
+        
+        const pendingTime = this.pendingCompletions.get(completionKey);
+        if (!pendingTime) return false;
+        
+        // Consider pending if changed within last 3 seconds
+        return (Date.now() - pendingTime) < 3000;
     }
 
     // Legacy localStorage methods for fallback
@@ -564,6 +646,7 @@ class StorageController {
     loadCompletionsFromLocalStorage() {
         try {
             const saved = localStorage.getItem(AppConfig.STORAGE.COMPLETIONS_KEY);
+            
             if (saved) {
                 this.scheduleCalculator.completions = JSON.parse(saved);
                 this.cleanOldCompletions();
@@ -588,6 +671,11 @@ class StorageController {
         // Clear timers
         if (this.saveDebounceTimer) {
             clearTimeout(this.saveDebounceTimer);
+        }
+        
+        // Clear pending completions tracking
+        if (this.pendingCompletions) {
+            this.pendingCompletions.clear();
         }
     }
 
